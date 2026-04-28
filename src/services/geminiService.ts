@@ -1,26 +1,49 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const GEMINI_API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
+const PROXY_URL = "/api/proxy.php";
 
-// ... (previous exports remain same)
+// Simple fetch-based client for production compatibility
+async function callGemini(model: string, contents: any, config: any = {}) {
+  try {
+    const response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, contents, config })
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (e) {
+    console.warn("Proxy failed, falling back to direct call if possible", e);
+  }
+
+  if (GEMINI_API_KEY) {
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    return await ai.models.generateContent({ model, contents, config });
+  }
+  
+  throw new Error("Nenhuma forma de comunicação com a IA configurada.");
+}
 
 export async function textToSpeech(text: string) {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-tts-preview",
-      contents: [{ parts: [{ text: `Apresente este planejamento de forma natural, como um diretor de estratégia sênior falando com o cliente Adryano Costa. Seja direto, confiante e amigável. Use um português claro e evite jargões. Aqui está o texto:\n\n${text}` }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Zephyr' },
-          },
+    const contents = [{ parts: [{ text: `Apresente este planejamento de forma natural, como um diretor de estratégia sênior falando com o cliente Adryano Costa. Seja direto, confiante e amigável. Use um português claro e evite jargões. Aqui está o texto:\n\n${text}` }] }];
+    const config = {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: 'Zephyr' },
         },
       },
-    });
+    };
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    const result = await callGemini("gemini-3.1-flash-tts-preview", contents, config);
+    // Handle different response formats (SDK vs Proxy/API)
+    const base64Audio = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || 
+                      result.response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    
     return base64Audio;
   } catch (error) {
     console.error("Erro no TTS:", error);
@@ -152,12 +175,14 @@ export async function generateStrategicPlan(
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-    });
+    const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+    const result = await callGemini("gemini-3-flash-preview", contents);
     
-    return response.text || "Não foi possível gerar o conteúdo.";
+    const text = result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
+                 result.candidates?.[0]?.content?.parts?.[0]?.text ||
+                 (typeof result.response?.text === 'function' ? result.response.text() : "Não foi possível gerar o conteúdo.");
+                 
+    return text;
   } catch (error) {
     console.error("Erro ao gerar planejamento:", error);
     throw error;

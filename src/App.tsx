@@ -64,6 +64,7 @@ export default function App() {
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [refinementText, setRefinementText] = useState<string>('');
   const [isRefining, setIsRefining] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -368,23 +369,23 @@ export default function App() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       {/* Sidebar - Minimalist sidebar */}
-      <aside className="fixed bottom-0 left-0 right-0 h-16 md:h-full md:w-20 bg-slate-900 text-white flex md:flex-col z-30 items-center justify-around md:justify-start border-t md:border-t-0 md:border-r border-slate-800">
+      <aside className="fixed bottom-0 left-0 right-0 h-16 md:h-full md:w-20 bg-white shadow-2xl flex md:flex-col z-30 items-center justify-around md:justify-start border-t md:border-t-0 md:border-r border-slate-100">
         <div className="md:flex-1 md:py-12 flex md:flex-col gap-8 md:gap-12 items-center w-full justify-around md:justify-start">
            <button 
             onClick={() => setShowHistory(!showHistory)}
-            className={`p-3 md:p-4 rounded-2xl transition-all ${showHistory ? 'bg-amber-500 text-slate-900 shadow-xl shadow-amber-500/20' : 'text-slate-500 hover:text-white'}`}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${showHistory ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
             title="Histórico de Conversas"
            >
             <HistoryIcon className="w-5 h-5 md:w-6 md:h-6" />
            </button>
-
-           <div className="hidden md:block rotate-90 origin-center whitespace-nowrap text-[9px] font-black text-slate-700 tracking-[0.6em] uppercase mt-24">
+ 
+           <div className="hidden md:block rotate-90 origin-center whitespace-nowrap text-[9px] font-bold text-slate-400 tracking-[0.6em] uppercase mt-24">
             ADRYANO COSTA
           </div>
           
           <button 
             onClick={handleNewDiagnostic}
-            className="md:hidden p-3 text-slate-500 hover:text-white"
+            className="md:hidden p-3 text-slate-400 hover:text-slate-900"
           >
             <BrainCircuit className="w-5 h-5" />
           </button>
@@ -466,11 +467,12 @@ export default function App() {
               className="max-w-4xl mx-auto mt-6 md:mt-12 text-center"
             >
               <div className="mb-12">
-                <div className="flex flex-col items-center gap-2 mb-8">
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tighter">
-                    Gênio <span className="text-amber-500 italic">IA</span>
+                <div className="flex flex-col items-center gap-2 mb-12">
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">
+                    Gênio
                   </h2>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-[0.4em] font-black">Estrategista de Adryano Costa</p>
+                  <div className="h-px w-12 bg-slate-200"></div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-[0.4em] font-bold">Estrategista de Adryano Costa</p>
                 </div>
                 <h1 className="text-4xl font-black text-slate-900 mb-4 tracking-tighter leading-tight">Qual marca vamos planejar hoje?</h1>
                 <p className="text-slate-400 max-w-lg mx-auto text-sm">Selecione uma das marcas do seu portfólio para iniciar o diagnóstico estratégico sênior.</p>
@@ -487,7 +489,7 @@ export default function App() {
                     }}
                     className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:border-amber-400 transition-all group flex flex-col items-center gap-4 active:scale-95"
                   >
-                    <div className={`w-4 h-4 rounded-full ${brandColors[key] || 'bg-slate-400'} shadow-sm group-hover:scale-125 transition-transform`}></div>
+                        <h3 className={`w-4 h-4 rounded-full ${brandColors[key] || 'bg-slate-400'} shadow-sm group-hover:scale-125 transition-transform`}></h3>
                     <span className="font-bold text-sm text-slate-600 group-hover:text-slate-900">{key}</span>
                   </button>
                 ))}
@@ -617,20 +619,20 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="pt-6">
+                    <div className="pt-6">
                   <button
                     type="submit"
                     disabled={isLoading || !performanceData.trim()}
-                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-amber-200 active:scale-[0.98] uppercase tracking-widest text-sm"
+                    className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-black py-5 px-8 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] uppercase tracking-widest text-sm"
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Refinando Estratégia...
+                        Trabalhando...
                       </>
                     ) : (
                       <>
-                        Gerar Inteligência Estratégica
+                        Gerar Estratégia
                         <ArrowRight className="w-6 h-6" />
                       </>
                     )}
