@@ -1,30 +1,25 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { Modality } from "@google/genai";
 
-const GEMINI_API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
-const PROXY_URL = "/api/proxy.php";
+const GEMINI_ENDPOINT = "/api/gemini.php";
 
-// Simple fetch-based client for production compatibility
 async function callGemini(model: string, contents: any, config: any = {}) {
   try {
-    const response = await fetch(PROXY_URL, {
+    const response = await fetch(GEMINI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, contents, config })
     });
     
-    if (response.ok) {
-      return await response.json();
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro no servidor: ${response.status}`);
     }
-  } catch (e) {
-    console.warn("Proxy failed, falling back to direct call if possible", e);
-  }
 
-  if (GEMINI_API_KEY) {
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    return await ai.models.generateContent({ model, contents, config });
+    return await response.json();
+  } catch (e) {
+    console.error("Erro na comunicação com o backend:", e);
+    throw e;
   }
-  
-  throw new Error("Nenhuma forma de comunicação com a IA configurada.");
 }
 
 export async function textToSpeech(text: string) {
