@@ -39,6 +39,9 @@ interface HistoryItem {
   title: string;
   plan: string;
   strategyType: 'mensal' | 'semanal';
+  performanceData: string;
+  newIdeas: string;
+  trafficData: { budget: string; results: string };
 }
 
 export default function App() {
@@ -58,7 +61,9 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [refinementText, setRefinementText] = useState<string>('');
+  const [isRefining, setIsRefining] = useState(false);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -70,21 +75,29 @@ export default function App() {
     }
   }, []);
 
-  const saveToHistory = (newPlan: string) => {
+  const saveToHistory = (newPlan: string, overrideId?: string) => {
     const titleMatch = newPlan.match(/# (.*)|## (.*)/);
     const title = titleMatch ? (titleMatch[1] || titleMatch[2]).trim() : `Planejamento ${selectedBrand}`;
     
+    const id = overrideId || Date.now().toString();
     const newItem: HistoryItem = {
-      id: Date.now().toString(),
+      id: id,
       brand: selectedBrand,
       timestamp: new Date().toLocaleString('pt-BR'),
       title: title,
       plan: newPlan,
-      strategyType: strategyType
+      strategyType: strategyType,
+      performanceData: performanceData,
+      newIdeas: newIdeas,
+      trafficData: trafficData
     };
 
-    const updatedHistory = [newItem, ...history];
+    // Remove existing if it's an update, then add to top
+    const filteredHistory = history.filter(item => item.id !== id);
+    const updatedHistory = [newItem, ...filteredHistory];
+    
     setHistory(updatedHistory);
+    setActiveHistoryId(id);
     localStorage.setItem('genio_ia_history', JSON.stringify(updatedHistory));
   };
 
@@ -121,6 +134,10 @@ export default function App() {
     setSelectedBrand(item.brand);
     setPlan(item.plan);
     setStrategyType(item.strategyType);
+    setPerformanceData(item.performanceData || '');
+    setNewIdeas(item.newIdeas || '');
+    setTrafficData(item.trafficData || { budget: '', results: '' });
+    setActiveHistoryId(item.id);
     setShowHistory(false);
   };
 
@@ -282,7 +299,7 @@ export default function App() {
         trafficData
       );
       setPlan(result);
-      saveToHistory(result);
+      saveToHistory(result, activeHistoryId || undefined);
     } catch (err) {
       setError('Ocorreu um erro ao gerar o planejamento. Por favor, tente novamente.');
       console.error(err);
@@ -296,6 +313,46 @@ export default function App() {
       resultsRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [plan]);
+
+  const handleRefine = async () => {
+    if (!refinementText.trim() || !plan) return;
+    
+    setIsRefining(true);
+    setError(null);
+    
+    try {
+      // Create a refinement prompt that includes context of existing plan
+      const updatedPerformance = `${performanceData}\n\n[NOVAS INFORMAÇÕES ADICIONADAS EM ${new Date().toLocaleString('pt-BR')}]:\n${refinementText}`;
+      setPerformanceData(updatedPerformance);
+      
+      const result = await generateStrategicPlan(
+        selectedBrand,
+        updatedPerformance,
+        strategyType,
+        newIdeas,
+        trafficData
+      );
+      
+      setPlan(result);
+      saveToHistory(result, activeHistoryId || undefined);
+      setRefinementText('');
+    } catch (err) {
+      setError('Erro ao refinar a estratégia.');
+      console.error(err);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleNewDiagnostic = () => {
+    setPlan(null);
+    setPerformanceData('');
+    setNewIdeas('');
+    setTrafficData({ budget: '', results: '' });
+    setSelectedBrand('');
+    setActiveHistoryId(null);
+    setRefinementText('');
+  };
 
   const brandColors: Record<string, string> = {
     'Óticas Carol': 'bg-blue-400',
@@ -326,11 +383,7 @@ export default function App() {
           </div>
           
           <button 
-            onClick={() => {
-              setPlan(null);
-              setSelectedBrand('');
-              setShowHistory(false);
-            }}
+            onClick={handleNewDiagnostic}
             className="md:hidden p-3 text-slate-500 hover:text-white"
           >
             <BrainCircuit className="w-5 h-5" />
@@ -428,7 +481,10 @@ export default function App() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setSelectedBrand(key)}
+                    onClick={() => {
+                      setSelectedBrand(key);
+                      setActiveHistoryId(null);
+                    }}
                     className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:border-amber-400 transition-all group flex flex-col items-center gap-4 active:scale-95"
                   >
                     <div className={`w-4 h-4 rounded-full ${brandColors[key] || 'bg-slate-400'} shadow-sm group-hover:scale-125 transition-transform`}></div>
@@ -666,12 +722,36 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <div className="p-8 sm:p-12">
-                    <div className="markdown-content">
-                      <ReactMarkdown>{plan}</ReactMarkdown>
-                    </div>
+                    <div className="p-8 sm:p-12">
+                      <div className="markdown-content">
+                        <ReactMarkdown>{plan}</ReactMarkdown>
+                      </div>
 
-                    <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col gap-6">
+                      {/* Input for refinement */}
+                      <div className="mt-12 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          Adicionar Novas Informações e Atualizar Solução
+                        </h4>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <textarea
+                            value={refinementText}
+                            onChange={(e) => setRefinementText(e.target.value)}
+                            placeholder="Algo mudou? Tem novos números ou uma ideia que surgiu agora? Digite aqui para atualizar o diagnóstico..."
+                            className="flex-1 p-4 rounded-2xl border-2 border-white bg-white focus:border-amber-400 outline-none transition-all text-sm text-slate-700 min-h-[100px] resize-none"
+                          />
+                          <button
+                            onClick={handleRefine}
+                            disabled={isRefining || !refinementText.trim()}
+                            className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {isRefining ? 'Atualizando...' : 'Atualizar'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col gap-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                         <button 
                           onClick={copyToNotion}
@@ -719,13 +799,7 @@ export default function App() {
                         </button>
 
                         <button 
-                          onClick={() => {
-                            setPlan(null);
-                            setPerformanceData('');
-                            setNewIdeas('');
-                            setTrafficData({ budget: '', results: '' });
-                            setSelectedBrand('');
-                          }}
+                          onClick={handleNewDiagnostic}
                           className="flex items-center gap-2 px-8 py-3 bg-slate-100 hover:bg-amber-500 hover:text-slate-900 text-slate-500 text-xs font-black rounded-xl transition-all uppercase tracking-widest shadow-sm shadow-slate-200"
                         >
                           Novo Diagnóstico
