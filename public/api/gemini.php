@@ -14,17 +14,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// 2. Carregamento da Chave de API
-// Procura em: 1. Variável de ambiente real | 2. Arquivo config.php local
+// 2. Carregamento da Chave de API pela variável de ambiente do servidor
 $apiKey = getenv('GEMINI_API_KEY');
 
-if (!$apiKey && file_exists(__DIR__ . '/config.php')) {
-    include __DIR__ . '/config.php';
-}
-
-if (!$apiKey || $apiKey === "SUA_CHAVE_API_AQUI") {
+if (!$apiKey) {
     http_response_code(500);
-    echo json_encode(["error" => "Configuração incompleta: GEMINI_API_KEY não encontrada no servidor."]);
+    echo json_encode([
+        "error" => "Configuração de servidor incompleta.",
+        "details" => "A variável de ambiente GEMINI_API_KEY não foi detectada no servidor PHP."
+    ]);
     exit;
 }
 
